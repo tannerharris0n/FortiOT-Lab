@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fortinet OT Demo Controller</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --bg:#0A0D0F;--surface:#111518;--surface2:#181C1F;
+  --border:#1E2428;--border2:#2A3035;
+  --forti:#EE3124;--forti2:#C2281D;
+  --green:#00C853;--amber:#FFB300;--red:#FF1744;
+  --blue:#2979FF;--teal:#00BCD4;
+  --text:#E8EAED;--muted:#6B7280;
+  --mono:'Courier New',monospace;
+}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;font-size:13px;overflow:hidden;}
+
+/* Flash overlay */
+#flash{position:fixed;inset:0;pointer-events:none;z-index:9999;opacity:0;transition:opacity .05s;}
+
+.app{display:grid;grid-template-columns:250px 1fr;grid-template-rows:52px 80px 1fr 36px;height:100vh;gap:0;}
+
+/* Header */
+.hdr{grid-column:1/-1;background:var(--surface);border-bottom:1px solid var(--border);
+  padding:0 16px;display:flex;align-items:center;gap:12px;}
+.logo-bar{width:4px;height:28px;background:var(--forti);border-radius:2px;flex-shrink:0;}
+.logo-text{font-size:12px;font-weight:700;letter-spacing:.08em;}
+.logo-sub{font-size:9px;color:var(--muted);letter-spacing:.05em;margin-top:1px;}
+.hdr-right{margin-left:auto;display:flex;align-items:center;gap:8px;}
+.conn-pill{display:flex;align-items:center;gap:5px;padding:3px 10px;border-radius:12px;
+  border:1px solid var(--border2);font-size:10px;color:var(--muted);}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--muted);flex-shrink:0;transition:background .3s;}
+.dot.ok{background:var(--green);}
+.dot.warn{background:var(--amber);animation:blink .8s infinite;}
+.dot.err{background:var(--red);animation:blink .4s infinite;}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
+input.cfg{background:var(--surface2);border:1px solid var(--border2);color:var(--text);
+  font-family:var(--mono);font-size:11px;padding:4px 8px;border-radius:4px;width:140px;}
+input.cfg:focus{outline:none;border-color:var(--forti);}
+.btn{background:var(--forti);color:#fff;border:none;padding:4px 10px;border-radius:4px;
+  font-size:11px;font-weight:600;cursor:pointer;letter-spacing:.04em;}
+.btn:hover{background:var(--forti2);}
+.btn.ghost{background:transparent;border:1px solid var(--border2);color:var(--muted);}
+.btn.ghost:hover{border-color:var(--text);color:var(--text);}
+
+/* State bar */
+.state-bar{grid-column:1/-1;background:var(--surface);border-bottom:1px solid var(--border);
+  padding:0 16px;display:flex;align-items:center;gap:14px;transition:background .4s;}
+.state-light{width:52px;height:52px;border-radius:10px;border:2px solid var(--border2);
+  display:flex;align-items:center;justify-content:center;font-size:22px;
+  transition:all .3s;flex-shrink:0;}
+.state-light.pulse{animation:ledpulse 1.2s ease-in-out infinite;}
+.state-light.strobe{animation:strobe .25s step-end infinite;}
+@keyframes ledpulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(.95)}}
+@keyframes strobe{0%,49%{opacity:1}50%,100%{opacity:0}}
+.state-title{font-size:15px;font-weight:700;letter-spacing:.03em;}
+.state-sub{font-size:10px;color:var(--muted);margin-top:2px;}
+.badges{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;}
+.badge{padding:2px 8px;border-radius:3px;font-size:9px;font-weight:700;letter-spacing:.06em;font-family:var(--mono);}
+.b-blue{background:rgba(41,121,255,.15);color:var(--blue);border:1px solid rgba(41,121,255,.3);}
+.b-teal{background:rgba(0,188,212,.15);color:var(--teal);border:1px solid rgba(0,188,212,.3);}
+.b-red{background:rgba(255,23,68,.15);color:var(--red);border:1px solid rgba(255,23,68,.3);}
+.b-green{background:rgba(0,200,83,.15);color:var(--green);border:1px solid rgba(0,200,83,.3);}
+.b-amber{background:rgba(255,179,0,.15);color:var(--amber);border:1px solid rgba(255,179,0,.3);}
+
+/* Sidebar */
+.sidebar{background:var(--surface);border-right:1px solid var(--border);
+  padding:10px 8px;display:flex;flex-direction:column;gap:4px;overflow-y:auto;}
+.grp-label{font-size:9px;letter-spacing:.12em;color:var(--muted);text-transform:uppercase;
+  padding:8px 6px 3px;margin-top:4px;border-top:1px solid var(--border);}
+.grp-label:first-child{border-top:none;margin-top:0;padding-top:0;}
+.scene-btn{width:100%;text-align:left;padding:8px 10px;border-radius:6px;
+  border:1px solid var(--border);background:var(--surface2);color:var(--text);
+  cursor:pointer;transition:all .12s;display:flex;align-items:center;gap:8px;}
+.scene-btn:hover{border-color:var(--border2);background:#1C2126;}
+.scene-btn.active.c-green{color:var(--green);border-color:var(--green);background:rgba(0,200,83,.08);}
+.scene-btn.active.c-red{color:var(--red);border-color:var(--red);background:rgba(255,23,68,.08);}
+.scene-btn.active.c-amber{color:var(--amber);border-color:var(--amber);background:rgba(255,179,0,.08);}
+.scene-btn.active.c-blue{color:var(--blue);border-color:var(--blue);background:rgba(41,121,255,.08);}
+.scene-btn.active.c-teal{color:var(--teal);border-color:var(--teal);background:rgba(0,188,212,.08);}
+.scene-btn.active.c-off{color:var(--muted);border-color:var(--muted);background:rgba(107,114,128,.06);}
+.scene-icon{font-size:15px;width:18px;text-align:center;flex-shrink:0;}
+.scene-name{font-size:11px;font-weight:600;line-height:1.2;}
+.scene-desc{font-size:9px;color:var(--muted);margin-top:1px;}
+
+/* Main panel */
+.main{display:grid;grid-template-rows:1fr auto;overflow:hidden;}
+
+/* Terminal */
+.term-wrap{display:flex;flex-direction:column;overflow:hidden;}
+.term-hdr{background:var(--surface);border-bottom:1px solid var(--border);
+  padding:5px 14px;display:flex;align-items:center;gap:10px;}
+.term-label{font-size:9px;letter-spacing:.12em;color:var(--muted);text-transform:uppercase;font-family:var(--mono);}
+.term-counts{margin-left:auto;display:flex;gap:12px;}
+.tcount{font-size:10px;color:var(--muted);font-family:var(--mono);}
+.tcount span{color:var(--text);}
+.term-body{flex:1;overflow-y:auto;padding:8px 14px;font-family:var(--mono);font-size:11px;
+  line-height:1.65;display:flex;flex-direction:column;gap:0;background:var(--bg);}
+.t-row{display:flex;gap:0;align-items:baseline;}
+.t-ts{color:#2D5E33;min-width:90px;flex-shrink:0;}
+.t-tid{min-width:22px;color:#444;flex-shrink:0;font-size:10px;}
+.t-dir{min-width:46px;flex-shrink:0;font-weight:700;}
+.t-dir.TX{color:#E6B800;}
+.t-dir.RX{color:#4A9EDE;}
+.t-dir.SYS{color:#7C6FCD;}
+.t-dir.ERR{color:#CC4444;}
+.t-dir.WLED{color:#27AE60;}
+.t-dir.FGT{color:#EE3124;}
+.t-mbap{color:#3A5E76;margin-right:3px;}
+.t-fc{color:#FFD54F;}
+.t-reg{color:#80CBC4;}
+.t-val{color:#A5D6A7;}
+.t-crc{color:#444;}
+.t-desc{color:#2E7A42;font-size:10px;margin-left:5px;}
+.t-sep{border-top:1px solid #151C1C;margin:3px 0;}
+.term-input-row{background:var(--surface);border-top:1px solid var(--border);
+  padding:5px 14px;display:flex;align-items:center;gap:6px;}
+.term-prompt{color:var(--green);font-family:var(--mono);font-size:11px;flex-shrink:0;}
+.term-input{flex:1;background:transparent;border:none;outline:none;
+  font-family:var(--mono);font-size:11px;color:var(--text);}
+
+/* Footer */
+.footer{grid-column:1/-1;background:var(--surface);border-top:1px solid var(--border);
+  padding:0 16px;display:flex;align-items:center;gap:16px;}
+.fstat{font-size:10px;color:var(--muted);font-family:var(--mono);}
+.fstat b{color:var(--text);font-weight:400;}
+.ws-status{margin-left:auto;display:flex;align-items:center;gap:5px;font-size:10px;color:var(--muted);}
+
+/* E-Stop flash overlay */
+@keyframes flashRed{
+  0%{opacity:.7;background:rgba(255,23,68,.6);}
+  15%{opacity:.9;background:rgba(255,23,68,.8);}
+  30%{opacity:.4;}
+  45%{opacity:.8;}
+  60%{opacity:.3;}
+  75%{opacity:.7;}
+  100%{opacity:0;}
+}
+@keyframes flashGreen{
+  0%{opacity:.5;background:rgba(0,200,83,.4);}
+  50%{opacity:.2;}
+  100%{opacity:0;}
+}
+</style>
+</head>
+<body>
+
+<div id="flash"></div>
+
+<div class="app">
+
+<!-- Header -->
+<div class="hdr">
+  <div class="logo-bar"></div>
+  <div>
+    <div class="logo-text">FORTINET OT DEMO CONTROLLER</div>
+    <div class="logo-sub">FortiGate Rugged 70F &bull; FortiSwitch Rugged &bull; Modbus TCP / WLED Bridge</div>
+  </div>
+  <div class="hdr-right">
+    <div class="conn-pill"><div class="dot" id="wsDot"></div><span id="wsLabel">WebSocket</span></div>
+    <div class="conn-pill"><div class="dot" id="wledDot"></div><span id="wledLabel">WLED</span></div>
+    <input class="cfg" id="wledIp" placeholder="192.168.20.50" value="192.168.20.50">
+    <button class="btn" onclick="pingWled()">Ping</button>
+    <button class="btn ghost" onclick="clearTerm()">CLR</button>
+  </div>
+</div>
+
+<!-- State bar -->
+<div class="state-bar" id="stateBar">
+  <div class="state-light" id="stateLed">💡</div>
+  <div style="flex:1;min-width:0;">
+    <div class="state-title" id="stateTitle">Idle — No Scene Active</div>
+    <div class="state-sub" id="stateSub">Select a scenario or hit the physical E-Stop to begin</div>
+  </div>
+  <div class="badges" id="badges">
+    <span class="badge b-blue">Modbus TCP :502</span>
+    <span class="badge b-teal">OT VLAN 20</span>
+  </div>
+</div>
+
+<!-- Sidebar -->
+<div class="sidebar">
+  <div class="grp-label">Normal Operations</div>
+  <button class="scene-btn c-green" id="btn-normal" onclick="runScene('normal')">
+    <span class="scene-icon">✅</span><div><div class="scene-name">All Clear</div><div class="scene-desc">OT nominal, policy OK</div></div>
+  </button>
+  <button class="scene-btn c-teal" id="btn-comm" onclick="runScene('comm')">
+    <span class="scene-icon">📡</span><div><div class="scene-name">OT Comms Active</div><div class="scene-desc">Modbus polling cycle</div></div>
+  </button>
+
+  <div class="grp-label">Security Events</div>
+  <button class="scene-btn c-amber" id="btn-itot" onclick="runScene('itot')">
+    <span class="scene-icon">⚠️</span><div><div class="scene-name">IT/OT Boundary Hit</div><div class="scene-desc">Unauthorized cross-zone</div></div>
+  </button>
+  <button class="scene-btn c-amber" id="btn-recon" onclick="runScene('recon')">
+    <span class="scene-icon">🔍</span><div><div class="scene-name">OT Recon Detected</div><div class="scene-desc">Port scan on Modbus</div></div>
+  </button>
+  <button class="scene-btn c-red" id="btn-ips" onclick="runScene('ips')">
+    <span class="scene-icon">🚨</span><div><div class="scene-name">IPS Alert Fired</div><div class="scene-desc">FortiGuard signature hit</div></div>
+  </button>
+  <button class="scene-btn c-red" id="btn-estop" onclick="runScene('estop')">
+    <span class="scene-icon">🛑</span><div><div class="scene-name">E-Stop / Safety Halt</div><div class="scene-desc">Physical or network kill</div></div>
+  </button>
+
+  <div class="grp-label">Policy Demo</div>
+  <button class="scene-btn c-green" id="btn-allow" onclick="runScene('allow')">
+    <span class="scene-icon">🔓</span><div><div class="scene-name">Policy: ALLOW</div><div class="scene-desc">FortiGate permits traffic</div></div>
+  </button>
+  <button class="scene-btn c-red" id="btn-block" onclick="runScene('block')">
+    <span class="scene-icon">🔒</span><div><div class="scene-name">Policy: BLOCK</div><div class="scene-desc">FortiGate denies + logs</div></div>
+  </button>
+  <button class="scene-btn c-blue" id="btn-segment" onclick="runScene('segment')">
+    <span class="scene-icon">🔵</span><div><div class="scene-name">Micro-Segmentation</div><div class="scene-desc">FortiLink VLAN isolation</div></div>
+  </button>
+
+  <div class="grp-label">Manual</div>
+  <button class="scene-btn c-off" id="btn-off" onclick="runScene('off')">
+    <span class="scene-icon">⬛</span><div><div class="scene-name">Strip Off</div><div class="scene-desc">All outputs zero</div></div>
+  </button>
+</div>
+
+<!-- Main: terminal -->
+<div class="main">
+  <div class="term-wrap">
+    <div class="term-hdr">
+      <span class="term-label">▶ Modbus TCP / WLED Bridge Terminal</span>
+      <div class="term-counts">
+        <span class="tcount">TX: <span id="txC">0</span></span>
+        <span class="tcount">RX: <span id="rxC">0</span></span>
+        <span class="tcount">HOOK: <span id="hookC">0</span></span>
+      </div>
+    </div>
+    <div class="term-body" id="term"></div>
+    <div class="term-input-row">
+      <span class="term-prompt">modbus&gt;</span>
+      <input class="term-input" id="manCmd"
+        placeholder="manual hex frame  e.g. 00 01 00 00 00 06 01 06 00 01 00 FF"
+        onkeydown="if(event.key==='Enter')sendManual()">
+    </div>
+  </div>
+</div>
+
+<!-- Footer -->
+<div class="footer">
+  <span class="fstat">SLAVE: <b>01</b></span>
+  <span class="fstat">PORT: <b>502</b></span>
+  <span class="fstat">PROTO: <b>Modbus TCP</b></span>
+  <span class="fstat">WLED: <b id="fWled">http://192.168.20.50/json/state</b></span>
+  <span class="fstat">WEBHOOK: <b id="fHook">http://…:3000/webhook</b></span>
+  <div class="ws-status"><div class="dot" id="wsDot2"></div><span id="wsLabel2">connecting…</span></div>
+</div>
+
+</div>
+
+<script>
+// ─── State ────────────────────────────────────────────────────────────────
+let txCount=0, rxCount=0, hookCount=0;
+let activeScene=null;
+let cycleTimer=null;
+let tid=1;
+let ws=null;
+
+// ─── WebSocket (receives FortiGate webhook events from server) ────────────
+function connectWs() {
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  ws = new WebSocket(`${proto}://${location.host}`);
+
+  ws.onopen = () => {
+    setWsStatus(true);
+    sysLog('WebSocket connected to demo server');
+  };
+  ws.onclose = () => {
+    setWsStatus(false);
+    setTimeout(connectWs, 3000);
+  };
+  ws.onerror = () => setWsStatus(false);
+
+  ws.onmessage = (e) => {
+    try {
+      const msg = JSON.parse(e.data);
+      if (msg.type === 'scene') {
+        hookCount++;
+        document.getElementById('hookC').textContent = hookCount;
+        fgtLog(`FortiGate DIO webhook received → triggering scene: ${msg.scene}`);
+        runScene(msg.scene, true); // true = from webhook
+      } else if (msg.type === 'raw') {
+        hookCount++;
+        document.getElementById('hookC').textContent = hookCount;
+        fgtLog(`FortiGate event received: ${JSON.stringify(msg.data).slice(0,80)}`);
+      }
+    } catch(err) {}
+  };
+}
+
+function setWsStatus(ok) {
+  ['wsDot','wsDot2'].forEach(id=>{
+    document.getElementById(id).className = 'dot ' + (ok?'ok':'err');
+  });
+  ['wsLabel','wsLabel2'].forEach(id=>{
+    document.getElementById(id).textContent = ok ? 'Server connected' : 'Server offline';
+  });
+}
+
+// ─── Modbus TCP frame builders ────────────────────────────────────────────
+function crc16(buf){
+  let c=0xFFFF;
+  for(let b of buf){c^=b;for(let i=0;i<8;i++)c=(c&1)?(c>>>1)^0xA001:c>>>1;}
+  return [c&0xFF,(c>>8)&0xFF];
+}
+function h2(n){return n.toString(16).toUpperCase().padStart(2,'0');}
+function hs(a){return a.map(h2).join(' ');}
+
+function mbap(len){
+  return [(tid>>8)&0xFF,tid&0xFF,0x00,0x00,0x00,len];
+}
+
+function buildFC16(unit,reg,vals){
+  const pdu=[unit,0x10,(reg>>8)&0xFF,reg&0xFF,0x00,vals.length,vals.length*2,
+    ...vals.flatMap(v=>[(v>>8)&0xFF,v&0xFF])];
+  return [...mbap(pdu.length),...pdu];
+}
+function buildFC01(unit,coil){
+  const pdu=[unit,0x01,(coil>>8)&0xFF,coil&0xFF,0x00,0x01];
+  return [...mbap(pdu.length),...pdu];
+}
+function buildFC06(unit,reg,val){
+  const pdu=[unit,0x06,(reg>>8)&0xFF,reg&0xFF,(val>>8)&0xFF,val&0xFF];
+  return [...mbap(pdu.length),...pdu];
+}
+
+// ─── Terminal ─────────────────────────────────────────────────────────────
+function now(){
+  const d=new Date();
+  return d.toTimeString().slice(0,8)+'.'+String(d.getMilliseconds()).padStart(3,'0');
+}
+
+function addRow(html){
+  const t=document.getElementById('term');
+  const r=document.createElement('div');
+  r.innerHTML=html;
+  t.appendChild(r);
+  t.scrollTop=t.scrollHeight;
+}
+
+function tRow(dir,mbapBytes,pduBytes,desc){
+  const mbapHex=mbapBytes?`<span class="t-mbap">${hs(mbapBytes)} </span>`:'';
+  let pduHtml='';
+  if(pduBytes&&pduBytes.length){
+    const unit=h2(pduBytes[0]);
+    const fc=h2(pduBytes[1]);
+    const rest=pduBytes.slice(2).map(h2);
+    pduHtml=`<span style="color:#555">${unit}</span> <span class="t-fc">${fc}</span> <span class="t-reg">${rest.slice(0,2).join(' ')}</span> <span class="t-val">${rest.slice(2).join(' ')}</span>`;
+  }
+  const countDir = dir==='TX'?'txC':dir==='RX'?'rxC':null;
+  if(countDir){
+    if(dir==='TX')txCount++;
+    if(dir==='RX')rxCount++;
+    document.getElementById('txC').textContent=txCount;
+    document.getElementById('rxC').textContent=rxCount;
+  }
+  const colors={TX:'#E6B800',RX:'#4A9EDE',SYS:'#7C6FCD',ERR:'#CC4444',WLED:'#27AE60',FGT:'#EE3124'};
+  const c=colors[dir]||'#888';
+  const tidStr=String(tid-1).padStart(3,'0');
+  addRow(`<div class="t-row"><span class="t-ts">${now()}</span><span class="t-tid" style="color:#444">[${tidStr}]</span><span class="t-dir" style="color:${c};min-width:46px;display:inline-block;font-weight:700">${dir.padEnd(5)}</span>${mbapHex}<span>${pduHtml}</span><span class="t-desc">${desc}</span></div>`);
+}
+function sysLog(msg){addRow(`<div class="t-row"><span class="t-ts">${now()}</span><span style="color:#444;min-width:22px;display:inline-block"> </span><span style="color:#7C6FCD;min-width:46px;display:inline-block;font-weight:700">SYS  </span><span style="color:#9575CD">${msg}</span></div>`);}
+function wledLog(msg){addRow(`<div class="t-row"><span class="t-ts">${now()}</span><span style="color:#444;min-width:22px;display:inline-block"> </span><span style="color:#27AE60;min-width:46px;display:inline-block;font-weight:700">WLED </span><span style="color:#27AE60">${msg}</span></div>`);}
+function errLog(msg){addRow(`<div class="t-row"><span class="t-ts">${now()}</span><span style="color:#444;min-width:22px;display:inline-block"> </span><span style="color:#CC4444;min-width:46px;display:inline-block;font-weight:700">ERR  </span><span style="color:#E57373">${msg}</span></div>`);}
+function fgtLog(msg){addRow(`<div class="t-row"><span class="t-ts">${now()}</span><span style="color:#444;min-width:22px;display:inline-block"> </span><span style="color:#EE3124;min-width:46px;display:inline-block;font-weight:700">FGT  </span><span style="color:#EE7060">${msg}</span></div>`);}
+function sep(){addRow(`<div class="t-sep"></div>`);}
+
+// ─── WLED via server proxy (no CORS) ─────────────────────────────────────
+async function wledSend(payload,label){
+  const ip=document.getElementById('wledIp').value.trim();
+  wledLog(`POST http://${ip}/json/state — ${label}`);
+  try{
+    const r=await fetch('/wled',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({ip,payload})
+    });
+    const d=await r.json();
+    if(d.ok){
+      wledLog(`HTTP ${d.status} OK — strip updated`);
+      document.getElementById('wledDot').className='dot ok';
+      document.getElementById('wledLabel').textContent=`WLED @ ${ip}`;
+    } else {
+      errLog(`WLED HTTP ${d.status} — ${d.error||'check IP'}`);
+    }
+    // Fake Modbus ACK RX
+    setTimeout(()=>{
+      tid++;
+      const resp=[0x01,0x10,0x00,0x01,0x00,0x04];
+      tRow('RX',[0x00,(tid-1)&0xFF,0x00,0x00,0x00,0x06],resp,'— FC16 write ACK');
+    },20+Math.random()*15);
+  }catch(e){
+    errLog(`Server proxy error: ${e.message}`);
+  }
+}
+
+function sendModbusColor(r,g,b,bri,label){
+  const frame=buildFC16(0x01,0x0001,[r,g,b,bri]);
+  tRow('TX',frame.slice(0,6),frame.slice(6),`— FC16 RGB[${r},${g},${b}] Bri=${bri}  ${label}`);
+  tid++;
+  wledSend({on:true,bri,seg:[{col:[[r,g,b]]}]},label);
+}
+function sendModbusOff(){
+  const frame=buildFC16(0x01,0x0001,[0,0,0,0]);
+  tRow('TX',frame.slice(0,6),frame.slice(6),'— FC16 SAFETY HALT all channels=0');
+  tid++;
+  wledSend({on:false},'Output OFF');
+}
+
+// ─── Screen flash ─────────────────────────────────────────────────────────
+function flashScreen(color,duration){
+  const f=document.getElementById('flash');
+  f.style.background=color;
+  f.style.transition='none';
+  f.style.opacity='1';
+  // strobe effect for E-Stop
+  let count=0;
+  const interval=100;
+  const strobeId=setInterval(()=>{
+    f.style.opacity=count%2===0?'0.7':'0.1';
+    count++;
+    if(count>Math.floor(duration/interval)){
+      clearInterval(strobeId);
+      f.style.transition='opacity .5s';
+      f.style.opacity='0';
+    }
+  },interval);
+}
+
+function flashOnce(color){
+  const f=document.getElementById('flash');
+  f.style.transition='none';
+  f.style.background=color;
+  f.style.opacity='0.5';
+  setTimeout(()=>{f.style.transition='opacity .6s';f.style.opacity='0';},80);
+}
+
+// ─── Scenes ───────────────────────────────────────────────────────────────
+const SCENES={
+  normal:{
+    color:'var(--green)',ledStyle:'background:rgba(0,200,83,.2);border-color:var(--green)',
+    icon:'✅',ledClass:'',
+    title:'All Clear — OT Network Nominal',
+    sub:'FortiGate policy: PERMIT | FortiSwitch port: UP | DIO: IN1 closed (safe)',
+    badges:'<span class="badge b-green">POLICY OK</span><span class="badge b-blue">Modbus TCP :502</span><span class="badge b-teal">OT VLAN 20</span>',
+    run(){
+      sep();sysLog('SCENE: All Clear — OT nominal state');
+      sendModbusColor(0,220,60,200,'Normal state — green');
+      setTimeout(()=>{
+        const f=buildFC01(0x01,0x0010);tid++;
+        tRow('TX',f.slice(0,6),f.slice(6),'— FC01 Read E-Stop coil 0x0010');
+        setTimeout(()=>{
+          const r=[0x01,0x01,0x01,0x00];
+          tRow('RX',[0x00,tid&0xFF,0x00,0x00,0x00,0x04],r,'— coil=0x00 E-Stop CLEAR (safe)');
+        },20);
+      },400);
+      flashOnce('rgba(0,200,83,.3)');
+    }
+  },
+
+  comm:{
+    color:'var(--teal)',ledStyle:'background:rgba(0,188,212,.15);border-color:var(--teal)',
+    icon:'📡',ledClass:'pulse',
+    title:'OT Comms Active — Modbus Polling Cycle',
+    sub:'PLC polling cycle running — strip follows live register values',
+    badges:'<span class="badge b-blue">Modbus TCP :502</span><span class="badge b-teal">OT VLAN 20</span>',
+    run(){
+      sep();sysLog('SCENE: OT Comms Active — starting Modbus poll cycle');
+      const colors=[[0,220,180],[0,180,220],[0,140,255],[20,200,160]];
+      let step=0;
+      const cycle=()=>{
+        if(activeScene!=='comm'){clearTimeout(cycleTimer);return;}
+        const [r,g,b]=colors[step%colors.length];
+        sendModbusColor(r,g,b,180,`Poll cycle step ${step}`);
+        step++;
+        cycleTimer=setTimeout(cycle,1800);
+      };
+      cycle();
+    }
+  },
+
+  itot:{
+    color:'var(--amber)',ledStyle:'background:rgba(255,179,0,.12);border-color:var(--amber)',
+    icon:'⚠️',ledClass:'pulse',
+    title:'IT/OT Boundary Violation — Unauthorized Cross-Zone Traffic',
+    sub:'SRC: 192.168.10.45 (IT VLAN 10) → DST: 192.168.20.50:502 (OT VLAN 20) — DENIED',
+    badges:'<span class="badge b-red">POLICY VIOLATION</span><span class="badge b-teal">OT VLAN 20</span>',
+    run(){
+      sep();
+      sysLog('SCENE: IT/OT Boundary Hit — unauthorized cross-zone attempt');
+      sysLog('SRC 192.168.10.45:1024 → DST 192.168.20.50:502 — matched policy rule 47');
+      sysLog('Action: DENY + LOG → FortiAnalyzer');
+      const f=buildFC16(0x01,0x0001,[200,120,0,220]);tid++;
+      tRow('TX',f.slice(0,6),f.slice(6),'— FC16 WARNING amber');
+      wledSend({on:true,bri:220,seg:[{col:[[220,100,0]]}]},'IT/OT boundary amber');
+      flashOnce('rgba(255,179,0,.35)');
+      setTimeout(()=>{
+        errLog('logid=0100022907 type=event subtype=forward action=deny srcip=192.168.10.45 dstip=192.168.20.50 dstport=502 policyid=47');
+      },300);
+    }
+  },
+
+  recon:{
+    color:'var(--amber)',ledStyle:'background:rgba(255,179,0,.12);border-color:var(--amber)',
+    icon:'🔍',ledClass:'pulse',
+    title:'OT Recon Detected — Modbus TCP Port Sweep',
+    sub:'FortiGuard IPS SID 47391: Modbus TCP reconnaissance from unknown host',
+    badges:'<span class="badge b-red">IPS DETECT</span><span class="badge b-blue">Modbus TCP :502</span>',
+    run(){
+      sep();sysLog('SCENE: OT Recon — Modbus port scan in progress');
+      for(let i=0;i<5;i++) setTimeout(()=>{
+        const f=buildFC01(0x01,i*2);tid++;
+        tRow('TX',f.slice(0,6),f.slice(6),`— Recon probe coil 0x${(i*2).toString(16).padStart(4,'0').toUpperCase()}`);
+        setTimeout(()=>errLog(`FortiGuard SID 47391: Modbus TCP recon sweep probe ${i+1}/5`),40);
+      },i*250);
+      setTimeout(()=>{
+        sendModbusColor(200,100,0,200,'Recon alert amber');
+        flashOnce('rgba(255,179,0,.3)');
+      },1400);
+    }
+  },
+
+  ips:{
+    color:'var(--red)',ledStyle:'background:rgba(255,23,68,.12);border-color:var(--red)',
+    icon:'🚨',ledClass:'strobe',
+    title:'IPS Alert — FortiGuard OT Signature Match',
+    sub:'Malicious Modbus payload blocked — FortiGate DROP + quarantine via FortiSwitch',
+    badges:'<span class="badge b-red">IPS BLOCK</span><span class="badge b-red">FortiGuard</span>',
+    run(){
+      sep();
+      sysLog('SCENE: IPS Alert — FortiGuard OT signature fired');
+      errLog('SID 48821: Modbus TCP write to protected safety PLC coil 0xFF00');
+      errLog('Action: BLOCK + QUARANTINE + FAZ alert generated');
+      sendModbusColor(255,0,0,255,'IPS ALERT — red strobe');
+      flashScreen('rgba(255,23,68,.6)',1200);
+      setTimeout(()=>{
+        const f=buildFC01(0x01,0xFF00);tid++;
+        tRow('TX',f.slice(0,6),f.slice(6),'— FC01 probe safety PLC coil 0xFF00 (BLOCKED)');
+        errLog('FortiGate session 7721 terminated — src MAC quarantined on FortiSwitch port 3');
+      },400);
+    }
+  },
+
+  estop:{
+    color:'var(--red)',ledStyle:'background:rgba(255,23,68,.18);border-color:var(--red)',
+    icon:'🛑',ledClass:'',
+    title:'E-STOP ASSERTED — Safety Halt Active',
+    sub:'FGR-70F DIO: IN1_REF state open — all OT outputs killed — pilot light RED',
+    badges:'<span class="badge b-red">E-STOP ACTIVE</span><span class="badge b-red">DIO IN1</span>',
+    run(fromWebhook){
+      sep();
+      if(fromWebhook){
+        fgtLog('FortiGate DIO event: IN1_REF changed from closed to open');
+        fgtLog('logid=0100022907 logdesc="Digital-IO input state change" state=open');
+        fgtLog('Automation stitch fired → webhook to WLED + demo controller');
+      } else {
+        sysLog('SCENE: E-STOP (manual) — simulating safety halt');
+      }
+      errLog('E-STOP RECEIVED — executing safety shutdown sequence');
+      const coilFrame=buildFC01(0x01,0x0010);tid++;
+      tRow('TX',coilFrame.slice(0,6),coilFrame.slice(6),'— FC01 Read E-Stop coil 0x0010');
+      setTimeout(()=>{
+        const resp=[0x01,0x01,0x01,0xFF];
+        tRow('RX',[0x00,tid&0xFF,0x00,0x00,0x00,0x04],resp,'— coil=0xFF ASSERTED (E-Stop active)');
+        sendModbusOff();
+        flashScreen('rgba(255,23,68,.65)',2000);
+        setTimeout(()=>sysLog('All outputs zeroed — awaiting manual reset (twist E-Stop to release)'),400);
+      },60);
+    }
+  },
+
+  allow:{
+    color:'var(--green)',ledStyle:'background:rgba(0,200,83,.15);border-color:var(--green)',
+    icon:'🔓',ledClass:'',
+    title:'FortiGate Policy — ALLOW',
+    sub:'Sanctioned SCADA host permitted to OT device — traffic logged and monitored',
+    badges:'<span class="badge b-green">POLICY ALLOW</span><span class="badge b-teal">OT VLAN 20</span>',
+    run(){
+      sep();
+      sysLog('SCENE: Policy ALLOW — sanctioned IT→OT path permitted');
+      sysLog('SRC 192.168.10.10 (SCADA) → DST 192.168.20.50:502 — policy rule 12: PERMIT');
+      sendModbusColor(0,220,80,200,'Policy ALLOW — green');
+      flashOnce('rgba(0,200,83,.35)');
+      setTimeout(()=>{
+        const resp=[0x01,0x10,0x00,0x01,0x00,0x04];
+        tRow('RX',[0x00,tid&0xFF,0x00,0x00,0x00,0x06],resp,'— FC16 ACK traffic permitted end-to-end');
+      },300);
+    }
+  },
+
+  block:{
+    color:'var(--red)',ledStyle:'background:rgba(255,23,68,.12);border-color:var(--red)',
+    icon:'🔒',ledClass:'',
+    title:'FortiGate Policy — BLOCK',
+    sub:'Unauthorized host denied — strip goes dark, FortiGate logs to FAZ',
+    badges:'<span class="badge b-red">POLICY BLOCK</span><span class="badge b-teal">OT VLAN 20</span>',
+    run(){
+      sep();
+      sysLog('SCENE: Policy BLOCK — unauthorized access denied');
+      sysLog('SRC 192.168.10.99 → DST 192.168.20.50:502 — policy rule 12: DENY');
+      const f=buildFC16(0x01,0x0001,[255,0,0,200]);tid++;
+      tRow('TX',f.slice(0,6),f.slice(6),'— FC16 attempted (will be blocked by FortiGate)');
+      setTimeout(()=>{
+        errLog('FortiGate DROP — no ACK from OT device — session timed out');
+        errLog('logid=0100022906 action=deny srcip=192.168.10.99 dstport=502 policyid=12');
+        sendModbusOff();
+        flashOnce('rgba(255,23,68,.35)');
+      },500);
+    }
+  },
+
+  segment:{
+    color:'var(--blue)',ledStyle:'background:rgba(41,121,255,.12);border-color:var(--blue)',
+    icon:'🔵',ledClass:'pulse',
+    title:'Micro-Segmentation — FortiLink VLAN Isolation',
+    sub:'FortiSwitch Rugged enforcing per-port VLAN policy managed by FortiGate FortiLink',
+    badges:'<span class="badge b-blue">Modbus TCP :502</span><span class="badge b-teal">FortiLink</span><span class="badge b-green">SEGMENTED</span>',
+    run(){
+      sep();
+      sysLog('SCENE: Micro-Segmentation — FortiLink per-port VLAN enforcement');
+      sysLog('FortiSwitch port 3: PVID=20, allowed-vlans=20, port-security=MAC-auth');
+      sysLog('IT VLAN 10 has zero layer-2 visibility to OT VLAN 20');
+      sendModbusColor(0,80,255,180,'Segmentation — blue');
+      setTimeout(()=>{
+        const f=buildFC01(0x01,0x0010);tid++;
+        tRow('TX',f.slice(0,6),f.slice(6),'— FC01 Read port security status coil');
+        sysLog('FortiLink: switch-controller managed — policy enforced at hardware level');
+      },500);
+    }
+  },
+
+  off:{
+    color:'var(--muted)',ledStyle:'background:#080B0D;border-color:#333',
+    icon:'⬛',ledClass:'',
+    title:'Strip Off — All Outputs Zero',
+    sub:'Manual off — safe state',
+    badges:'<span class="badge b-blue">Modbus TCP :502</span>',
+    run(){sep();sysLog('SCENE: Manual OFF');sendModbusOff();}
+  }
+};
+
+// ─── Run a scene ─────────────────────────────────────────────────────────
+function runScene(name, fromWebhook=false){
+  clearTimeout(cycleTimer);
+  activeScene=name;
+  const s=SCENES[name];
+  if(!s) return;
+
+  // Update sidebar buttons
+  document.querySelectorAll('.scene-btn').forEach(b=>b.classList.remove('active'));
+  const btn=document.getElementById('btn-'+name);
+  if(btn) btn.classList.add('active');
+
+  // Update state bar
+  document.getElementById('stateTitle').textContent=s.title;
+  document.getElementById('stateSub').textContent=s.sub;
+  document.getElementById('badges').innerHTML=s.badges;
+
+  const led=document.getElementById('stateLed');
+  led.style.cssText=`${s.ledStyle};width:52px;height:52px;border-radius:10px;border-width:2px;border-style:solid;display:flex;align-items:center;justify-content:center;font-size:22px;transition:all .3s;flex-shrink:0;`;
+  led.className='state-light '+(s.ledClass||'');
+  led.textContent=s.icon;
+
+  s.run(fromWebhook);
+}
+
+// ─── Ping WLED ───────────────────────────────────────────────────────────
+async function pingWled(){
+  const ip=document.getElementById('wledIp').value.trim();
+  document.getElementById('fWled').textContent=`http://${ip}/json/state`;
+  sysLog(`Pinging WLED at ${ip} via server proxy...`);
+  document.getElementById('wledDot').className='dot warn';
+  try{
+    const r=await fetch('/wled',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({ip,payload:{v:true}})
+    });
+    const d=await r.json();
+    if(d.ok){
+      sysLog(`WLED reachable — HTTP ${d.status} OK`);
+      document.getElementById('wledDot').className='dot ok';
+      document.getElementById('wledLabel').textContent=`WLED @ ${ip}`;
+    } else {
+      errLog(`WLED not reachable at ${ip} — check OT VLAN routing`);
+      document.getElementById('wledDot').className='dot err';
+    }
+  }catch(e){
+    errLog(`Proxy error pinging WLED: ${e.message}`);
+    document.getElementById('wledDot').className='dot err';
+  }
+}
+
+// ─── Manual frame inject ─────────────────────────────────────────────────
+function sendManual(){
+  const raw=document.getElementById('manCmd').value.trim();
+  if(!raw) return;
+  const bytes=raw.split(/\s+/).map(h=>parseInt(h,16)).filter(n=>!isNaN(n));
+  if(bytes.length<6){errLog('Modbus TCP needs at least 6 bytes (MBAP header)');return;}
+  tRow('TX',bytes.slice(0,6),bytes.slice(6),'— manual inject');tid++;
+  document.getElementById('manCmd').value='';
+}
+
+function clearTerm(){
+  document.getElementById('term').innerHTML='';
+  txCount=rxCount=hookCount=0;
+  ['txC','rxC','hookC'].forEach(id=>document.getElementById(id).textContent=0);
+  sysLog('Terminal cleared');
+}
+
+// ─── Boot ─────────────────────────────────────────────────────────────────
+connectWs();
+
+// Show webhook URL in footer
+fetch('/health').then(r=>r.json()).then(()=>{
+  document.getElementById('fHook').textContent=`http://${location.hostname}:3000/webhook`;
+}).catch(()=>{});
+
+sysLog('FortiGate OT Demo Controller initialized');
+sysLog('WebSocket connecting to local demo server...');
+sysLog('Set WLED IP and click Ping to verify hardware');
+sysLog('FortiGate automation stitch → POST to /webhook to trigger scenes remotely');
+sep();
+</script>
+</body>
+</html>
