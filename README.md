@@ -2,6 +2,10 @@
 
 > A live OT network security demonstration using a FortiGate Rugged 70F, FortiSwitch Rugged 108F, physical E-Stop panel, and a WLED-controlled LED strip to make abstract IT/OT security concepts physically visible at tradeshows and customer briefings.
 
+> **⚠️ Independent project — not a Fortinet GitHub account.**
+>
+> This repository is **not** a Fortinet GitHub account, repository, or product. FortiOT-Lab is a personal hobby/demo project built and maintained independently by [Tanner Harrison](https://tannerharrison.com) and is **not** endorsed, sponsored, reviewed, or supported by Fortinet, Inc. While the maintainer works as a Fortinet SE by day, this project is personal and the views, code, hardware wiring, and configurations here are the maintainer's own and do not represent Fortinet or any employer. All Fortinet product names, trademarks, and logos are property of Fortinet, Inc. For authoritative product information, see [docs.fortinet.com](https://docs.fortinet.com).
+
 ![Demo Panel](assets/panel.jpg)
 
 ---
